@@ -4,7 +4,7 @@ var utils = require("../utils");
 var log = require("npmlog");
 
 module.exports = function (defaultFuncs, api, ctx) {
-  return function changeArchivedStatus(threadOrThreads, archive, callback) {
+  return function resolvePhotoUrl(photoID, callback) {
     var resolveFunc = function () { };
     var rejectFunc = function () { };
     var returnPromise = new Promise(function (resolve, reject) {
@@ -13,26 +13,22 @@ module.exports = function (defaultFuncs, api, ctx) {
     });
 
     if (!callback) {
-      callback = function (err) {
+      callback = function (err, data) {
         if (err) return rejectFunc(err);
-        resolveFunc();
+        resolveFunc(data);
       };
     }
 
-    var form = {};
-
-    if (utils.getType(threadOrThreads) === "Array") for (var i = 0; i < threadOrThreads.length; i++) form["ids[" + threadOrThreads[i] + "]"] = archive;
-    else form["ids[" + threadOrThreads + "]"] = archive;
-
     defaultFuncs
-      .post("https://www.facebook.com/ajax/mercury/change_archived_status.php", ctx.jar, form)
+      .get("https://www.facebook.com/mercury/attachments/photo", ctx.jar, { photo_id: photoID })
       .then(utils.parseAndCheckLogin(ctx, defaultFuncs))
-      .then(function (resData) {
+      .then(resData => {
         if (resData.error) throw resData;
-        return callback();
+        var photoUrl = resData.jsmods.require[0][3][0];
+        return callback(null, photoUrl);
       })
-      .catch(function (err) {
-        log.error("changeArchivedStatus", err);
+      .catch(err => {
+        log.error("resolvePhotoUrl", err);
         return callback(err);
       });
 

@@ -4,7 +4,9 @@ var utils = require("../utils");
 var log = require("npmlog");
 
 module.exports = function (defaultFuncs, api, ctx) {
-  return function changeArchivedStatus(threadOrThreads, archive, callback) {
+  return function handleMessageRequest(threadID, accept, callback) {
+    if (utils.getType(accept) !== "Boolean") throw { error: "Please pass a boolean as a second argument." };
+
     var resolveFunc = function () { };
     var rejectFunc = function () { };
     var returnPromise = new Promise(function (resolve, reject) {
@@ -13,26 +15,32 @@ module.exports = function (defaultFuncs, api, ctx) {
     });
 
     if (!callback) {
-      callback = function (err) {
+      callback = function (err, data) {
         if (err) return rejectFunc(err);
-        resolveFunc();
+        resolveFunc(data);
       };
     }
 
-    var form = {};
+    var form = {
+      client: "mercury"
+    };
 
-    if (utils.getType(threadOrThreads) === "Array") for (var i = 0; i < threadOrThreads.length; i++) form["ids[" + threadOrThreads[i] + "]"] = archive;
-    else form["ids[" + threadOrThreads + "]"] = archive;
+    if (utils.getType(threadID) !== "Array") threadID = [threadID];
+
+    var messageBox = accept ? "inbox" : "other";
+
+    for (var i = 0; i < threadID.length; i++) form[messageBox + "[" + i + "]"] = threadID[i];
 
     defaultFuncs
-      .post("https://www.facebook.com/ajax/mercury/change_archived_status.php", ctx.jar, form)
+      .post("https://www.facebook.com/ajax/mercury/move_thread.php", ctx.jar, form)
       .then(utils.parseAndCheckLogin(ctx, defaultFuncs))
       .then(function (resData) {
         if (resData.error) throw resData;
+
         return callback();
       })
       .catch(function (err) {
-        log.error("changeArchivedStatus", err);
+        log.error("handleMessageRequest", err);
         return callback(err);
       });
 

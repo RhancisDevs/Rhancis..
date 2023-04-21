@@ -4,7 +4,8 @@ var utils = require("../utils");
 var log = require("npmlog");
 
 module.exports = function (defaultFuncs, api, ctx) {
-  return function changeArchivedStatus(threadOrThreads, archive, callback) {
+  // muteSecond: -1=permanent mute, 0=unmute, 60=one minute, 3600=one hour, etc.
+  return function muteThread(threadID, muteSeconds, callback) {
     var resolveFunc = function () { };
     var rejectFunc = function () { };
     var returnPromise = new Promise(function (resolve, reject) {
@@ -13,26 +14,31 @@ module.exports = function (defaultFuncs, api, ctx) {
     });
 
     if (!callback) {
-      callback = function (err) {
+      callback = function (err, data) {
         if (err) return rejectFunc(err);
-        resolveFunc();
+
+        resolveFunc(data);
       };
     }
 
-    var form = {};
-
-    if (utils.getType(threadOrThreads) === "Array") for (var i = 0; i < threadOrThreads.length; i++) form["ids[" + threadOrThreads[i] + "]"] = archive;
-    else form["ids[" + threadOrThreads + "]"] = archive;
+    var form = {
+      thread_fbid: threadID,
+      mute_settings: muteSeconds
+    };
 
     defaultFuncs
-      .post("https://www.facebook.com/ajax/mercury/change_archived_status.php", ctx.jar, form)
+      .post("https://www.facebook.com/ajax/mercury/change_mute_thread.php", ctx.jar, form)
+      .then(utils.saveCookies(ctx.jar))
       .then(utils.parseAndCheckLogin(ctx, defaultFuncs))
       .then(function (resData) {
-        if (resData.error) throw resData;
+        if (resData.error) {
+          throw resData;
+        }
+
         return callback();
       })
       .catch(function (err) {
-        log.error("changeArchivedStatus", err);
+        log.error("muteThread", err);
         return callback(err);
       });
 

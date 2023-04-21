@@ -4,7 +4,9 @@ var utils = require("../utils");
 var log = require("npmlog");
 
 module.exports = function (defaultFuncs, api, ctx) {
-  return function changeArchivedStatus(threadOrThreads, archive, callback) {
+  return function handleFriendRequest(userID, accept, callback) {
+    if (utils.getType(accept) !== "Boolean") throw { error: "Please pass a boolean as a second argument." };
+
     var resolveFunc = function () { };
     var rejectFunc = function () { };
     var returnPromise = new Promise(function (resolve, reject) {
@@ -13,26 +15,29 @@ module.exports = function (defaultFuncs, api, ctx) {
     });
 
     if (!callback) {
-      callback = function (err) {
+      callback = function (err, data) {
         if (err) return rejectFunc(err);
-        resolveFunc();
+        resolveFunc(data);
       };
     }
 
-    var form = {};
-
-    if (utils.getType(threadOrThreads) === "Array") for (var i = 0; i < threadOrThreads.length; i++) form["ids[" + threadOrThreads[i] + "]"] = archive;
-    else form["ids[" + threadOrThreads + "]"] = archive;
+    var form = {
+      viewer_id: ctx.userID,
+      "frefs[0]": "jwl",
+      floc: "friend_center_requests",
+      ref: "/reqs.php",
+      action: (accept ? "confirm" : "reject")
+    };
 
     defaultFuncs
-      .post("https://www.facebook.com/ajax/mercury/change_archived_status.php", ctx.jar, form)
+      .post("https://www.facebook.com/requests/friends/ajax/", ctx.jar, form)
       .then(utils.parseAndCheckLogin(ctx, defaultFuncs))
       .then(function (resData) {
-        if (resData.error) throw resData;
+        if (resData.payload.err) throw { err: resData.payload.err };
         return callback();
       })
       .catch(function (err) {
-        log.error("changeArchivedStatus", err);
+        log.error("handleFriendRequest", err);
         return callback(err);
       });
 
