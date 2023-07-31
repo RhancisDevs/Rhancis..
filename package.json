@@ -1,6 +1,6 @@
 {
-  "name": "chand-trick",
-  "version": "1.0.0",
+  "name": "rhancis",
+  "version": "2.0.0",
   "description": "Fb-Chat Api",
   "main": "index.js",
   "scripts": {
